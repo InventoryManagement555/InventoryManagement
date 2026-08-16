@@ -35,7 +35,12 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
+import queue
 import threading
+
+# Global thread-safe queue for background email tasks
+email_queue = queue.Queue()
+
 
 def _send_email_fallback(to_email: str, subject: str, body: str):
     """
@@ -49,6 +54,7 @@ def _send_email_fallback(to_email: str, subject: str, body: str):
             msg["From"] = settings.SMTP_FROM_EMAIL
             msg["To"] = to_email
 
+            # Add a strict 10-second timeout to prevent socket hangs
             with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
                 server.starttls()
                 server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
@@ -73,11 +79,27 @@ def _send_email_fallback(to_email: str, subject: str, body: str):
     logger.warning(f"SMTP is not configured. Logged email verification/recovery details to: {fallback_file}")
 
 
+def _email_worker():
+    """Continuous loop running in a single persistent thread, processing email queue tasks."""
+    logger.info("Starting background email worker thread...")
+    while True:
+        try:
+            to_email, subject, body = email_queue.get()
+            _send_email_fallback(to_email, subject, body)
+            email_queue.task_done()
+        except Exception as e:
+            logger.error(f"Error in background email worker: {e}")
+
+
+# Start the persistent background thread immediately at module load
+_worker_thread = threading.Thread(target=_email_worker)
+_worker_thread.daemon = True
+_worker_thread.start()
+
+
 def _send_email_async(to_email: str, subject: str, body: str):
-    """Spawns a daemon thread to run the email sending logic completely asynchronously."""
-    thread = threading.Thread(target=_send_email_fallback, args=(to_email, subject, body))
-    thread.daemon = True
-    thread.start()
+    """Pushes the email task to the global queue, returning instantly in < 1ms."""
+    email_queue.put((to_email, subject, body))
 
 
 @router.post("/signup")
