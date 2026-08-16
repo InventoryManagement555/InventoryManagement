@@ -1,0 +1,128 @@
+================================================================================
+D-MART STYLE INVENTORY MANAGEMENT SYSTEM - PROJECT SUMMARY
+================================================================================
+
+This document provides a comprehensive summary of all implemented files, architecture,
+and workflows for the D-Mart-style Inventory Management System frontend, backend, 
+database foundation, and docker setups.
+
+--------------------------------------------------------------------------------
+1. MONOREPO STRUCTURE
+--------------------------------------------------------------------------------
+The project is organized into a clean monorepo division to isolate concerns:
+- /backend   : FastAPI python backend service, models, services, and routers.
+- /frontend  : React + Vite client dashboard.
+- Root Files : Orchestration configs (docker-compose.yml), database verification 
+               scripts, and readmes.
+
+--------------------------------------------------------------------------------
+2. FRONTEND CLIENT (VITE + REACT + TS + TAILWIND)
+--------------------------------------------------------------------------------
+Housed in `/frontend`, it implements an immersive "operations control console" dark theme:
+- Theme & Colors: Zinc-950 deep charcoal background, glowing teal accents, and unified stock badges.
+- Sidebar Layout: h-screen sticky top-0, wrapping navigation links in a flex-1 overflow-y-auto container, keeping user profile details and signout button permanently fixed at the bottom of the screen.
+- Pages:
+  1. Auth (Login, Signup & Recovery): Centered cards with inline error validation displays.
+     - Signup is a multi-step flow: Step 1 collects operator details, Step 2 displays a 6-digit OTP input card sent to their email.
+     - Forgot/Reset Password pages let operators recover access keys via email reset links.
+  2. Dashboard (Admin Only): Cards for Total Stock Value, Items, Low Stock, and Expiry;
+     interactive Recharts diagrams (Pie/Bar) for category breakdown and top movers.
+     - Unresolved Alerts Panel: Lists active system alerts (LOW_STOCK, EXPIRY_SOON) with a one-click "Resolve" button for admins.
+     - Export CSV Button: Generates a CSV file detailing low stock levels and near-expiry grocery batches.
+  3. Operations (Staff Landing Page): Purpose-built staff operational view with three panels:
+     - Searchable/filterable item list with SKU, name, category badge, and stock health indicator
+     - Quick Stock In/Out buttons per row opening stock adjustment modals
+     - "My Recent Activity" panel showing the current user's own last 20 ledger entries
+  4. Items (Shared): Tabular view with Alphanumeric search and category filters.
+     - "Add Item" Modal (Admin Only): Dual-parameter fields (switches inputs based on category).
+     - "Stock Adjustment" Modal: Focused inputs for Stock In vs Stock Out with notes.
+  5. Reorder Forecasts (Admin Only): Displays predictions table and velocity bands (Fast/Slow).
+     - Includes a manual recalculation button with a loading projection spinner and a "Download Reorders CSV" button.
+  6. AI Report Assistant (Admin Only): Console chat panel with user/assistant bubbles,
+     rapid suggestion query chips, and text query inputs.
+  7. Activity Log (Admin Only): Dedicated audit trail timeline showing item changes, forecast triggers, and alert resolutions.
+- Routing: Dynamic role checking redirects unauthorized users to login or the correct
+  landing page. Admin -> /dashboard, Staff -> /operations. Staff cannot access dashboard,
+  forecasts, audit logs, or assistant routes (redirected automatically).
+
+--------------------------------------------------------------------------------
+3. BACKEND API (FASTAPI + SQLALCHEMY ORM)
+--------------------------------------------------------------------------------
+Housed in `/backend`, providing a secure REST API mapping the frontend's exact contracts:
+- Database Tables (PostgreSQL only — SQLite is rejected at startup via a Pydantic validator):
+  1. `users`: Credentials, timestamps, role values, and OTP verification/reset tokens.
+  2. `categories`: Defines category type classification ('furniture' | 'grocery').
+  3. `items`: Specifications (dimensions, material, warranty_months, perishable, expiry_tracked).
+  4. `stock_ledger`: Immutable append-only adjustments (change_qty, reference_note, batch, expiry).
+  5. `sales` & `sale_items`: Standard sale records.
+  6. `forecasts`: Projections (predicted_daily_demand, days_until_stockout, suggested_reorder_date/qty).
+  7. `alerts`: Persisted alerts history (`id`, `item_id`, `type`, `message`, `resolved`, `created_at`, `resolved_at`).
+  8. `audit_log`: Chronological record of admin actions (`action`, `entity_type`, `operator_id`, `timestamp`).
+- Derived Stock Logic: Items have no quantity column. Stock is always SUM(change_qty) on ledger.
+- Redis Caching: Computed available_stock values are cached in Redis (key: stock:<item_id>).
+  Cache is invalidated on every stock write transaction for coherence.
+- Demand Forecasting Service: Computes moving average demand over a 90-day OUT transactions window.
+- Conversational Assistant Service (Fuzzy-Matched Safe-Query Pattern):
+  - 7 fixed, parameterized query templates (stock value, no sales, low stock, top sellers, expiring items, item count, stock level).
+  - Domain-specific typo correction dictionary normalizes user input before matching.
+  - difflib.SequenceMatcher fuzzy matching with 0.72 threshold for tolerance of typos, synonyms, and casual phrasing (e.g. "whats my stok value" matches correctly).
+  - Exact substring match fast path tried first, fuzzy scoring as fallback.
+  - Security invariant: fuzzy matching only decides WHICH template to run. User input never reaches SQL. Unmatched questions gracefully decline.
+  - Matched results are sent to Claude API for natural language phrasing.
+- Security & Verification:
+  - Signup privilege escalation FIXED: role field removed from UserSignup schema.
+    POST /auth/signup always creates role="staff". Admin accounts are seed/manual-DB only.
+  - Email verification OTP gate: POST /auth/signup generates a 6-digit OTP code with a 15-minute expiry. Login is blocked until POST /auth/verify-otp activates the account. Code resending is supported via POST /auth/resend-otp.
+  - Forgot/Reset Password endpoints: password reset via secure single-use token with anti-enumeration response masking and 1-hour expiry.
+  - Native bcrypt hashing, JWT encryption, role check dependency filters.
+  - CORS origins validated against wildcards (rejects "*" at startup).
+  - Global exception handler catches all errors, logs tracebacks server-side, returns sanitized generic HTTP 500 JSON — no stack trace leaks.
+  - slowapi rate limiters on auth endpoints.
+- Staff-Scoped Endpoints:
+  - GET /stock/my-activity: Returns current user's own recent 20 ledger entries (created_by = current_user.id). No other user's data exposed.
+
+--------------------------------------------------------------------------------
+4. DOCKER & LOCAL DEVELOPMENT ORCHESTRATION
+--------------------------------------------------------------------------------
+- docker-compose.yml: Coordinates postgres, redis, backend, and frontend containers. Loads SMTP credentials dynamically.
+- Backend Dockerfile: Slim python package installations running uvicorn.
+- Frontend Dockerfile: Multi-stage build compiling Vite React bundle, served via Nginx.
+- Seed Script (seed.py): Automates database setup, generating 2 pre-verified default users, 120 items, and 90 days of transactions (~11,000 entries). Flushes Redis cache on each run.
+- Engine Configuration: Core database configuration validates that the DATABASE_URL points only to PostgreSQL (and fails to start if it doesn't).
+- Database Browser (browse_db.py): Utility in /backend to print structured table contents via psycopg2.
+- Security Test (test_signup_security.py): Standalone script that verifies POST /auth/signup with {"role": "admin"} creates a staff user, proving the privilege escalation fix works.
+- OTP signup test (test_otp_signup.py): Verifies registration, OTP generation, verification, and login.
+
+--------------------------------------------------------------------------------
+5. ACCREDITED ACCESS CREDENTIALS
+--------------------------------------------------------------------------------
+- Backend Port  : http://localhost:8000
+- Frontend Port : http://localhost:5173 (Local dev) / http://localhost:8080 (Docker Nginx)
+- Admin Login   : admin@dmart.com / admin123
+- Staff Login   : staff@dmart.com / staff123
+
+--------------------------------------------------------------------------------
+6. KEY SECURITY & VERIFICATION MEASURES
+--------------------------------------------------------------------------------
+- Signup always creates staff accounts (role field stripped from public API).
+- 6-digit OTP code verification required to activate accounts on signup.
+- Forgot password recovery via single-use tokens with anti-enumeration protection.
+- JWT tokens with configurable expiry, bcrypt password hashing.
+- Role-based route guarding enforced server-side via dependency injection.
+- CORS origins cannot contain wildcard "*" (validated at startup).
+- Global exception handler sanitizes all error responses (no trace leaks).
+- AI assistant uses only fixed parameterized queries (no user input in SQL).
+- Stock ledger is append-only (no UPDATE/DELETE on transaction records).
+- Redis cache invalidated on every stock write for data coherence.
+
+--------------------------------------------------------------------------------
+7. MVP SIMPLIFICATIONS (vs. Full Design)
+--------------------------------------------------------------------------------
+- No Supplier/PO Workflows: Simulated automatic restocks at reorder points.
+- No Multi-location Support: Single retail store/warehouse.
+- No Alembic Migration History: Tables created via SQLAlchemy metadata create_all().
+- No Background Celery Engine: Forecasts & Alerts triggered manually via forecasts run endpoint.
+- Template-matched LLM queries: Safe-query pattern instead of free-form SQL generation.
+- Simple Moving Average Forecasting: 90-day historical averages, not ARIMA/Prophet.
+- Single-token authentication: Direct access JWT without refresh token lifecycle.
+================================================================================

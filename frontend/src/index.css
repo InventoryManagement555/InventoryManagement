@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-zinc-950 text-zinc-100 antialiased font-sans min-h-screen selection:bg-teal-500/30 selection:text-teal-200;
+  }
+  
+  #root {
+    @apply min-h-screen flex flex-col w-full max-w-none border-none p-0 m-0 text-left;
+  }
+}
+
+/* Custom scrollbar styling for a high-tech console feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-zinc-950;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-800 rounded-md border-2 border-zinc-950 transition-colors duration-200;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-teal-600;
+}
+
+/* Card glassmorphic glow effect */
+.panel-glow {
+  box-shadow: 0 0 40px -10px rgba(13, 148, 136, 0.05);
+}
+
+.panel-glow-warning {
+  box-shadow: 0 0 40px -10px rgba(245, 158, 11, 0.05);
+}
+
+.panel-glow-danger {
+  box-shadow: 0 0 40px -10px rgba(239, 68, 68, 0.05);
+}

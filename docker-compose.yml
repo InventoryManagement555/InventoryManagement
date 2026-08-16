@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dmart-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: dmart_user
+      POSTGRES_PASSWORD: dmart_pass
+      POSTGRES_DB: dmart_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dmart_user -d dmart_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: dmart-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: dmart-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://dmart_user:dmart_pass@postgres:5432/dmart_db
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=super_secret_jwt_token_for_d_mart_ops_center_2026
+      - JWT_EXPIRY_HOURS=24
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:8080
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-inventorymanagement555@gmail.com}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL:-inventorymanagement555@gmail.com}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_BASE_URL=http://localhost:8000
+    container_name: dmart-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
