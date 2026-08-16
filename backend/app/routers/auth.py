@@ -74,8 +74,9 @@ def _send_email_fallback(to_email: str, subject: str, body: str):
 @router.post("/signup")
 @limiter.limit("10/minute")
 def signup(request: Request, payload: UserSignup, db: Session = Depends(get_db)):
+    email_lower = payload.email.strip().lower()
     # Check for existing user
-    existing = db.query(User).filter(User.email == payload.email).first()
+    existing = db.query(User).filter(User.email == email_lower).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -88,7 +89,7 @@ def signup(request: Request, payload: UserSignup, db: Session = Depends(get_db))
 
     user = User(
         name=payload.name,
-        email=payload.email,
+        email=email_lower,
         password_hash=hash_password(payload.password),
         role="staff",  # SECURITY: Always staff. Admin accounts are seed/manual-DB only.
         is_verified=False,
@@ -113,8 +114,9 @@ def signup(request: Request, payload: UserSignup, db: Session = Depends(get_db))
 
 @router.post("/verify-otp")
 def verify_otp(payload: VerifyOTPRequest, db: Session = Depends(get_db)):
+    email_lower = payload.email.strip().lower()
     user = db.query(User).filter(
-        User.email == payload.email,
+        User.email == email_lower,
         User.is_verified == False
     ).first()
 
@@ -141,8 +143,9 @@ def verify_otp(payload: VerifyOTPRequest, db: Session = Depends(get_db)):
 
 @router.post("/resend-otp")
 def resend_otp(payload: ResendOTPRequest, db: Session = Depends(get_db)):
+    email_lower = payload.email.strip().lower()
     user = db.query(User).filter(
-        User.email == payload.email,
+        User.email == email_lower,
         User.is_verified == False
     ).first()
 
@@ -182,7 +185,8 @@ def login(
     OAuth2 password flow: accepts form-urlencoded username + password.
     The frontend sends the user's email as the 'username' field.
     """
-    user = db.query(User).filter(User.email == form_data.username).first()
+    email_lower = form_data.username.strip().lower()
+    user = db.query(User).filter(User.email == email_lower).first()
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -208,7 +212,8 @@ def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Sessio
     Anti-enumeration recovery: always returns the same success message
     regardless of whether the email address exists in the database.
     """
-    user = db.query(User).filter(User.email == payload.email).first()
+    email_lower = payload.email.strip().lower()
+    user = db.query(User).filter(User.email == email_lower).first()
     if user:
         token = secrets.token_urlsafe(32)
         expiry = datetime.now(timezone.utc) + timedelta(hours=1)

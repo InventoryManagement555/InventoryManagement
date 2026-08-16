@@ -7,6 +7,17 @@ and workflows for the D-Mart-style Inventory Management System frontend, backend
 database foundation, and docker setups.
 
 --------------------------------------------------------------------------------
+0. PRODUCTION DEPLOYMENT & HOSTING DETAILS
+--------------------------------------------------------------------------------
+The live application stack is deployed across the following public hosting platforms:
+- Frontend Client (React + TS + Vite) : Deployed on Vercel at https://inventory-management-woad-iota.vercel.app
+- Backend API (FastAPI REST service)  : Deployed on Render at https://inventorymanagement-4e8o.onrender.com
+- Database System (PostgreSQL)        : Hosted on Neon (AWS ap-southeast-1 region)
+  - Connection Host: `ep-bold-fire-az5cnsph.c-3.ap-southeast-1.aws.neon.tech`
+- Caching Store (Redis with SSL/TLS)  : Hosted on Upstash (Standard plan)
+  - Connection Host: `glowing-hog-134224.upstash.io`
+
+--------------------------------------------------------------------------------
 1. MONOREPO STRUCTURE
 --------------------------------------------------------------------------------
 The project is organized into a clean monorepo division to isolate concerns:
