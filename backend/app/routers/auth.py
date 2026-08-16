@@ -35,6 +35,8 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=128)
 
 
+import threading
+
 def _send_email_fallback(to_email: str, subject: str, body: str):
     """
     Tries to send a real email using SMTP settings.
@@ -71,9 +73,16 @@ def _send_email_fallback(to_email: str, subject: str, body: str):
     logger.warning(f"SMTP is not configured. Logged email verification/recovery details to: {fallback_file}")
 
 
+def _send_email_async(to_email: str, subject: str, body: str):
+    """Spawns a daemon thread to run the email sending logic completely asynchronously."""
+    thread = threading.Thread(target=_send_email_fallback, args=(to_email, subject, body))
+    thread.daemon = True
+    thread.start()
+
+
 @router.post("/signup")
 @limiter.limit("10/minute")
-def signup(request: Request, payload: UserSignup, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def signup(request: Request, payload: UserSignup, db: Session = Depends(get_db)):
     email_lower = payload.email.strip().lower()
     # Check for existing user
     existing = db.query(User).filter(User.email == email_lower).first()
@@ -107,7 +116,7 @@ def signup(request: Request, payload: UserSignup, background_tasks: BackgroundTa
         f"<h2 style='letter-spacing: 5px; color: #0d9488;'>{otp}</h2>"
         f"<p>This OTP will expire in 15 minutes.</p>"
     )
-    background_tasks.add_task(_send_email_fallback, user.email, "D-Mart Console: Verification OTP", email_body)
+    _send_email_async(user.email, "D-Mart Console: Verification OTP", email_body)
 
     return {"detail": "Verification OTP sent. Please check your email to complete registration."}
 
@@ -142,7 +151,7 @@ def verify_otp(payload: VerifyOTPRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/resend-otp")
-def resend_otp(payload: ResendOTPRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def resend_otp(payload: ResendOTPRequest, db: Session = Depends(get_db)):
     email_lower = payload.email.strip().lower()
     user = db.query(User).filter(
         User.email == email_lower,
@@ -169,7 +178,7 @@ def resend_otp(payload: ResendOTPRequest, background_tasks: BackgroundTasks, db:
         f"<h2 style='letter-spacing: 5px; color: #0d9488;'>{otp}</h2>"
         f"<p>This OTP will expire in 15 minutes.</p>"
     )
-    background_tasks.add_task(_send_email_fallback, user.email, "D-Mart Console: Verification OTP", email_body)
+    _send_email_async(user.email, "D-Mart Console: Verification OTP", email_body)
 
     return {"detail": "Verification OTP has been resent."}
 
@@ -207,7 +216,7 @@ def login(
 
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
-def forgot_password(request: Request, payload: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """
     Anti-enumeration recovery: always returns the same success message
     regardless of whether the email address exists in the database.
@@ -229,7 +238,7 @@ def forgot_password(request: Request, payload: ForgotPasswordRequest, background
             f"<p><a href='{reset_link}'>{reset_link}</a></p>"
             f"<p>This link will expire in 1 hour. If you did not make this request, please ignore this email.</p>"
         )
-        background_tasks.add_task(_send_email_fallback, user.email, "D-Mart Console: Reset Access Key", email_body)
+        _send_email_async(user.email, "D-Mart Console: Reset Access Key", email_body)
 
     return {"detail": "If the account exists, a password reset link has been dispatched to the email."}
 
