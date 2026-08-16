@@ -25,6 +25,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
 
 
+@router.get("/version")
+def get_version():
+    return {"version": "task_queue_active_v1"}
+
+
 # Pydantic schemas for verification/recovery requests
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
