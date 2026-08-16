@@ -96,8 +96,8 @@ Housed in `/backend`, providing a secure REST API mapping the frontend's exact c
 --------------------------------------------------------------------------------
 5. ACCREDITED ACCESS CREDENTIALS
 --------------------------------------------------------------------------------
-- Backend Port  : http://localhost:8000
-- Frontend Port : http://localhost:5173 (Local dev) / http://localhost:8080 (Docker Nginx)
+- Backend Port  : http://localhost:8000 (Local) / https://inventorymanagement-4e8o.onrender.com (Production)
+- Frontend Port : http://localhost:5173 (Local dev) / http://localhost:8080 (Docker Nginx) / https://inventory-management-woad-iota.vercel.app (Production)
 - Admin Login   : admin@dmart.com / admin123
 - Staff Login   : staff@dmart.com / staff123
 
