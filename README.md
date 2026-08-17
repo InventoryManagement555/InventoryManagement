@@ -145,14 +145,22 @@ The system utilizes exactly two data stores. No third data store (such as SQLite
 ### 1. Signup Privilege Escalation & OTP Verification (Critical)
 Public signup (`POST /auth/signup`) ignores client-supplied roles and always creates a `staff` account. To activate the account, the user must input a 6-digit numeric OTP code sent to their email (expires in 15 minutes). Verification is completed via `POST /auth/verify-otp`. Unverified users are blocked from logging in.
 
-### 2. Password Reset Recovery
-Operators can request a recovery link at `POST /auth/forgot-password` (expires in 1 hour). The endpoint implements anti-enumeration protection (always returns the same success text whether or not the email exists).
+### 2. Password Reset Recovery & Auto-Verification
+Operators can request a recovery link at `POST /auth/forgot-password` (expires in 1 hour). The endpoint implements anti-enumeration protection (always returns the same success text whether or not the email exists). Completing a password reset automatically verifies the user account (`is_verified = True`), enabling immediate login access.
 
-### 3. Derived Available Stock (Immutable Ledger)
+### 3. Dual-Source Authentication for CSV Downloads
+FastAPI's `get_current_user` dependency accepts tokens from both `Authorization: Bearer <token>` HTTP headers and `?token=...` URL query parameters. This ensures that browser file downloads and direct report links (`/export/dashboard` and `/export/forecasts`) authenticate reliably without header stripping issues.
+
+### 4. Derived Available Stock (Immutable Ledger)
 The `items` table does NOT contain a `current_stock` column. Available stock is calculated dynamically using `SUM(change_qty) FROM stock_ledger`. All operations are `INSERT` commands; `UPDATE` operations on the ledger are prohibited.
 
-### 4. Fuzzy-Matched AI Report Assistant (Safe-Query Pattern)
+### 5. Fuzzy-Matched AI Report Assistant (Safe-Query Pattern)
 Instead of allowing arbitrary SQL generation, the assistant uses intent matching to bind users' requests to 7 fixed, parameterized template queries. The matching layer supports domain-specific typo correction (e.g. "stok"→"stock") and `difflib.SequenceMatcher` fuzzy scoring.
 
-### 5. Sticky Navigation Sidebar Layout
+### 6. Sticky Navigation Sidebar Layout
 The navigation sidebar is styled using `h-screen sticky top-0 flex flex-col`. The user identity card and the "TERMINATE SESSION" button remain permanently fixed at the bottom of the column, adapting to small viewport heights and screen scaling.
+
+### 7. End-to-End Video Walkthrough
+An automated browser subagent test suite captures complete video walkthroughs of all Admin and Staff workflows. Recordings are saved to:
+- **`C:\Users\ASUS\Downloads\full_dmart_app_test.mp4`** (H.264 MP4 video)
+- **`C:\Users\ASUS\Downloads\full_dmart_app_test.webp`** (WebP animation)

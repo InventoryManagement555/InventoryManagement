@@ -84,9 +84,10 @@ Housed in `/backend`, providing a secure REST API mapping the frontend's exact c
   - Signup privilege escalation FIXED: role field removed from UserSignup schema.
     POST /auth/signup always creates role="staff". Admin accounts are seed/manual-DB only.
   - Email verification OTP gate: POST /auth/signup generates a 6-digit OTP code with a 15-minute expiry. Login is blocked until POST /auth/verify-otp activates the account. Code resending is supported via POST /auth/resend-otp.
-  - Forgot/Reset Password endpoints: password reset via secure single-use token with anti-enumeration response masking and 1-hour expiry.
+  - Forgot/Reset Password endpoints: password reset via secure single-use token with anti-enumeration response masking, 1-hour expiry, and automatic account verification (`is_verified = True`).
   - Native bcrypt hashing, JWT encryption, role check dependency filters.
-  - CORS origins validated against wildcards (rejects "*" at startup).
+  - CORS origins regex allows all Vercel domains (`r"https://.*\.vercel\.app|http://localhost:.*"`).
+  - Multi-source authentication (`get_current_user`): Accepts tokens from both `Authorization: Bearer <token>` headers and `?token=...` URL query parameters, enabling seamless CSV report downloads.
   - Global exception handler catches all errors, logs tracebacks server-side, returns sanitized generic HTTP 500 JSON — no stack trace leaks.
   - slowapi rate limiters on auth endpoints.
 - Staff-Scoped Endpoints:
