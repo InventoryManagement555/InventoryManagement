@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 import bcrypt
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -58,11 +58,26 @@ def decode_access_token(token: str) -> dict:
 # FastAPI dependencies
 # ---------------------------------------------------------------------------
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
     db: Session = Depends(get_db),
 ):
-    """Dependency: returns the current User ORM object from a valid Bearer token."""
+    """Dependency: returns the current User ORM object from a valid Bearer token or ?token= query parameter."""
     from app.models.models import User  # deferred to avoid circular imports
+
+    token = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+    
+    if not token:
+        token = request.query_params.get("token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     payload = decode_access_token(token)
     user_id: str = payload.get("sub")

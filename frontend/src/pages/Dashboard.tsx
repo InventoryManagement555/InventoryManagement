@@ -136,11 +136,27 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleDownloadCSV = () => {
-    const token = localStorage.getItem('token');
-    const url = `${api.baseUrl}/export/dashboard?token=${token}`;
-    // Simple fetch-then-blob pattern to handle headers or trigger direct browser download
-    window.open(url, '_blank');
+  const handleDownloadCSV = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${api.baseUrl}/export/dashboard?token=${token}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', 'dmart_dashboard_report.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error('CSV Download error:', err);
+    }
   };
 
   if (loading) {

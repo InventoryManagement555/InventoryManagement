@@ -64,10 +64,27 @@ export const Reorders: React.FC = () => {
     }
   };
 
-  const handleDownloadCSV = () => {
-    const token = localStorage.getItem('token');
-    const url = `${api.baseUrl}/export/forecasts?token=${token}`;
-    window.open(url, '_blank');
+  const handleDownloadCSV = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${api.baseUrl}/export/forecasts?token=${token}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', 'dmart_reorders_forecast_report.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error('CSV Download error:', err);
+    }
   };
 
   const filteredForecasts = forecasts.filter(f => {
