@@ -301,10 +301,11 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
                 detail="Reset token has expired",
             )
 
-    # Invalidate token and update password
+    # Invalidate token, verify user, and update password
     user.password_hash = hash_password(payload.new_password)
     user.reset_token = None
     user.reset_token_expires_at = None
+    user.is_verified = True
     db.commit()
 
     return {"detail": "Password has been successfully updated. You can now log in."}
