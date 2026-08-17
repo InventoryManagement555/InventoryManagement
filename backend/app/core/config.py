@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "CHANGE_ME_TO_A_RANDOM_64_CHAR_SECRET"
     JWT_EXPIRY_HOURS: int = 24
     ANTHROPIC_API_KEY: str = ""
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:8080"
+    CORS_ORIGINS: str = "https://inventory-management-woad-iota.vercel.app,http://localhost:5173,http://localhost:8080"
     FRONTEND_URL: str = "https://inventory-management-woad-iota.vercel.app"
 
     # SMTP configuration (Defaults to Gmail App Password)

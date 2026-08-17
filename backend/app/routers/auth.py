@@ -283,19 +283,23 @@ def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Sessio
 
 @router.post("/reset-password")
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.reset_token == payload.token).first()
+    token_clean = payload.token.strip() if payload.token else ""
+    user = db.query(User).filter(User.reset_token == token_clean).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token",
         )
 
-    now = datetime.now(timezone.utc)
-    if user.reset_token_expires_at and user.reset_token_expires_at.replace(tzinfo=timezone.utc) < now:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Reset token has expired",
-        )
+    if user.reset_token_expires_at:
+        exp = user.reset_token_expires_at
+        exp_utc = exp.replace(tzinfo=timezone.utc) if exp.tzinfo is None else exp
+        now_utc = datetime.now(timezone.utc)
+        if exp_utc < now_utc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reset token has expired",
+            )
 
     # Invalidate token and update password
     user.password_hash = hash_password(payload.new_password)
