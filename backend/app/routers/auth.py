@@ -49,22 +49,33 @@ email_queue = queue.Queue()
 
 def _send_email_fallback(to_email: str, subject: str, body: str):
     """
-    Tries to send a real email using SMTP settings.
-    Falls back to writing the email details to a local text log file if SMTP is not configured.
+    Tries to send a real email using SMTP_SSL (port 465) or standard SMTP (port 587).
+    Falls back to writing the email details to a local text log file if SMTP fails or is unconfigured.
     """
     if settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD:
+        # Try SSL on port 465 first (supported by Gmail & non-blocked on cloud providers like Render)
         try:
             msg = MIMEText(body, "html")
             msg["Subject"] = subject
             msg["From"] = settings.SMTP_FROM_EMAIL
             msg["To"] = to_email
 
-            # Add a strict 10-second timeout to prevent socket hangs
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+            smtp_port = int(settings.SMTP_PORT) if settings.SMTP_PORT else 465
+            if smtp_port == 465 or smtp_port == 587:
+                try:
+                    with smtplib.SMTP_SSL(settings.SMTP_HOST, 465, timeout=5) as server:
+                        server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                        server.send_message(msg)
+                    logger.info(f"Successfully sent email to {to_email} via SMTP_SSL (465)")
+                    return
+                except Exception as ssl_err:
+                    logger.warning(f"SMTP_SSL 465 failed ({ssl_err}), trying standard SMTP...")
+
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=5) as server:
                 server.starttls()
                 server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
                 server.send_message(msg)
-            logger.info(f"Successfully sent email to {to_email}")
+            logger.info(f"Successfully sent email to {to_email} via SMTP ({settings.SMTP_PORT})")
             return
         except Exception as e:
             logger.error(f"Failed to send SMTP email to {to_email}: {e}")
