@@ -10,14 +10,14 @@ class Settings(BaseSettings):
     JWT_EXPIRY_HOURS: int = 24
     ANTHROPIC_API_KEY: str = ""
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:8080"
-    FRONTEND_URL: str = "http://localhost:8080"
+    FRONTEND_URL: str = "https://inventory-management-woad-iota.vercel.app"
 
-    # SMTP configuration
-    SMTP_HOST: str = ""
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
-    SMTP_FROM_EMAIL: str = "noreply@dmart.com"
+    # SMTP configuration (Defaults to Gmail App Password)
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 465
+    SMTP_USER: str = "inventorymanagement555@gmail.com"
+    SMTP_PASSWORD: str = "dadp bhrc saef otki"
+    SMTP_FROM_EMAIL: str = "inventorymanagement555@gmail.com"
 
     @field_validator("DATABASE_URL")
     @classmethod
